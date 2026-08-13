@@ -18,20 +18,22 @@ rem       - any key pressed-> skip immediately
 rem  3. Compare versions via PowerShell [version] (by segments)
 rem  4. If newer: download new script (same 5s+skip protection)
 rem  5. Integrity check: first line must be "@echo off"
-rem  6. Self-replace via delayed updater script
+rem  5b.FORCE downloaded script's LOCAL_VER to match REMOTE_VER
+rem      (prevents infinite update loop if cloud script version
+rem       line was not bumped together with version.txt)
+rem  6. Self-replace via delayed updater (single window, no flicker)
 rem  7. :BUSINESS always reached no matter what
 rem
 rem  [DISPLAY / NO FLICKER]
-rem  - The very first download call draws the whole screen once
-rem    (cls + title). Everything after that ONLY rewrites the
-rem    version line in place via CR (no more full-screen cls).
-rem  - Single console window: updater + restarted script run via
-rem    "start /b" (no new windows).
+rem  - First download call draws the whole screen once (cls+title).
+rem    Everything after that ONLY rewrites the version line via CR.
+rem  - Single console window (start /b), all UI text is Chinese.
 rem ============================================================
 set "LOCAL_VER=1.0.1"
 set "VER_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/version.txt"
 set "SCRIPT_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/TongMing.bat"
 set "NEW_FILE=%TEMP%\TongMing_new.bat"
+if exist "%TEMP%\TongMing_updater.bat" del /q "%TEMP%\TongMing_updater.bat" >nul 2>&1
 
 rem ============================================================
 rem  Step 1: check update (first DLOAD draws screen once)
@@ -90,10 +92,27 @@ if errorlevel 1 (
     goto :BUSINESS
 )
 
+rem ============================================================
+rem  Step 5b: FORCE downloaded script's LOCAL_VER = REMOTE_VER
+rem  (all double quotes built via [char]34 so the echo line has
+rem   NO double quotes -> cmd cannot break it and it never leaks
+rem   to the screen)
+rem ============================================================
+set "PSFIX=%TEMP%\TongMing_fix.ps1"
+if exist "%PSFIX%" del "%PSFIX%" >nul 2>&1
+echo $f='%NEW_FILE%'                                     >> "%PSFIX%"
+echo $r='%REMOTE_VER%'                                   >> "%PSFIX%"
+echo $q=[char]34                                         >> "%PSFIX%"
+echo $c=[IO.File]::ReadAllText($f)                       >> "%PSFIX%"
+echo $c=[regex]::Replace($c,'set '+$q+'LOCAL_VER=[^'+$q+']*'+$q,'set '+$q+'LOCAL_VER='+$r+$q) >> "%PSFIX%"
+echo [IO.File]::WriteAllText($f,$c,[Text.Encoding]::ASCII) >> "%PSFIX%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PSFIX%" 2>nul
+del "%PSFIX%" >nul 2>&1
+
 call :SHOW 1
 
 rem ============================================================
-rem  Step 6: single-window self-replace
+rem  Step 6: single-window self-replace (no self-delete!)
 rem ============================================================
 (
 echo @echo off
@@ -101,13 +120,12 @@ echo chcp 936 ^>nul
 echo timeout /t 3 /nobreak ^>nul
 echo copy /y "%NEW_FILE%" "%~f0" ^>nul
 echo if errorlevel 1 exit /b
-echo del "%%~f0"
 echo start /b "" cmd /c call "%~f0"
 echo exit
 ) > "%TEMP%\TongMing_updater.bat"
 
 echo.
-echo Update complete, restarting in 3 seconds... (same window)
+powershell -NoProfile -Command "Write-Host ([char]0x66F4+[char]0x65B0+[char]0x5B8C+[char]0x6210+[char]0xFF0C+[char]0x5373+[char]0x5C06+[char]0x91CD+[char]0x542F+[char]0x65B0+[char]0x7248+[char]0x672C+[char]0xFF01)" 2>nul
 start /b "" "%TEMP%\TongMing_updater.bat"
 exit /b
 
@@ -140,7 +158,7 @@ echo }                                                    >> "%PS2%"
 echo Write-Host ([char]13+(' '*110)) -NoNewline           >> "%PS2%"
 echo Write-Host ([char]13+$cur+$st) -NoNewline            >> "%PS2%"
 echo Write-Host ''                                        >> "%PS2%"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%PS2%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS2%" 2>nul
 del "%PS2%" >nul 2>&1
 exit /b
 
@@ -206,7 +224,7 @@ echo     exit 0                                           >> "%PS_FILE%"
 echo }                                                    >> "%PS_FILE%"
 echo if(-not $p.HasExited){ try{ $p.Kill() }catch{} }     >> "%PS_FILE%"
 echo exit 2                                               >> "%PS_FILE%"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_FILE%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_FILE%" 2>nul
 set "DL_RESULT=!errorlevel!"
 del "%PS_FILE%" >nul 2>&1
 exit /b
