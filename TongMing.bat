@@ -7,7 +7,7 @@ rem  TongMing.bat - 在线自更新批处理脚本
 rem
 rem  【流程简介】
 rem  1. 配置区    ：集中定义本地版本号、远程版本号地址、脚本下载地址
-rem  2. 跳过检测  ：3 秒倒计时，按 N 键可立即跳过更新检测，直接进入业务区
+rem  2. 跳过检测  ：3 秒倒计时，按任意键可立即跳过更新检测，直接进入业务区
 rem  3. 版本检测  ：下载远程版本号（连接与总耗时均限 3 秒，超时即放弃）；
 rem                 用 PowerShell [version] 按段比较版本号大小
 rem  4. 自动更新  ：发现新版本后直接自动下载并替换（不再询问）；
@@ -45,13 +45,14 @@ echo 当前脚本版本：%LOCAL_VER%
 echo.
 
 rem ------------------------------------------------------------
-rem  第1步：3 秒倒计时，按 N 键跳过更新检测
-rem  (choice /t 3 为超时秒数，/d Y 为超时后默认选项"继续检测")
-rem  BTW：BAT 的 choice 命令只能认指定按键，无法真正"任意键"，
-rem  所以用 N 键代表"跳过"，倒计时结束默认自动检测
+rem  第1步：3 秒等待窗口，按任意键跳过更新检测，不按键则 3 秒后自动检测
+rem  choice 命令只能认指定按键，无法监听"任意键"，
+rem  所以借助 PowerShell 的 [Console]::KeyAvailable 实现：
+rem     - 3 秒内按任意键 -> 退出码 1 -> 跳过检测，直接进业务区
+rem     - 倒计时结束无按键 -> 退出码 0 -> 自动开始检测
 rem ------------------------------------------------------------
-choice /c YN /t 3 /d Y /m "3 秒后自动检查更新，按 N 键立即跳过..."
-if errorlevel 2 goto :BUSINESS
+powershell -NoProfile -Command "$d=(Get-Date).AddSeconds(3); Write-Host '3 秒后自动检查更新，按任意键立即跳过...' -NoNewline; while(-not [Console]::KeyAvailable -and (Get-Date) -lt $d){Start-Sleep -Milliseconds 100}; if([Console]::KeyAvailable){Write-Host ' (已跳过)'; exit 1}else{Write-Host ''; exit 0}"
+if errorlevel 1 goto :BUSINESS
 
 echo 正在检查更新（任一网络步骤超过 3 秒即放弃）...
 echo.
