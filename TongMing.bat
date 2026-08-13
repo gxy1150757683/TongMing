@@ -3,7 +3,34 @@ setlocal enabledelayedexpansion
 chcp 936 >nul
 
 rem ============================================================
-rem  配置区：每次发新版只改这里第一行版本号
+rem  TongMing.bat - 在线自更新批处理脚本
+rem
+rem  【流程简介】
+rem  1. 配置区    ：集中定义本地版本号、远程版本号地址、脚本下载地址
+rem  2. 跳过检测  ：3 秒倒计时，按 N 键可立即跳过更新检测，直接进入业务区
+rem  3. 版本检测  ：下载远程版本号（连接与总耗时均限 3 秒，超时即放弃）；
+rem                 用 PowerShell [version] 按段比较版本号大小
+rem  4. 自动更新  ：发现新版本后直接自动下载并替换（不再询问）；
+rem                 下载成功后生成"延迟替身"脚本并退出自身，
+rem                 替身等 3 秒（原脚本已退出释放文件占用）后
+rem                 覆盖原脚本、重启新版、最后删除自己
+rem  5. 业务区    ：无论更新成功与否，最终都会进入 :BUSINESS 标签
+rem                 执行用户自己的业务代码
+rem
+rem  【容错策略】
+rem  - 网络超时 / 下载失败 / 文件为空 / 拿到 404 页面
+rem    → 一律降级为"使用当前版本继续运行"，不中断主业务流程
+rem
+rem  【版本号比较说明】
+rem  不能直接用 if "%A%"=="%B%" 做字符串比较，原因：
+rem    "1.9.9" 与 "1.10.0" 逐字符比较时，第 2 段 "9" > "1"，
+rem    会错误地认为 1.9.9 比 1.10.0 新。
+rem  常用解决办法（大家通常的做法）：
+rem    1) 补零法：每段补足固定位数再比较
+rem       （1.9.9 -> 000100090009，1.10.0 -> 000100100000）
+rem    2) 逐段拆分法：for /f 按 "." 拆开后，从高位到低位逐段比较
+rem    3) 专用解析器：本脚本采用 PowerShell 的 [version] 类型，
+rem       它能正确解析 x.y.z 格式并逐段比较，最省事、最可靠
 rem ============================================================
 set "LOCAL_VER=1.0.0"
 set "VER_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/version.txt"
@@ -11,19 +38,33 @@ set "SCRIPT_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/he
 set "NEW_FILE=%TEMP%\TongMing_new.bat"
 
 cls
+echo ========================================
+echo   TongMing 在线更新脚本
+echo ========================================
 echo 当前脚本版本：%LOCAL_VER%
-echo 正在检查更新...
 echo.
 
 rem ------------------------------------------------------------
-rem  第1步：下载远程版本号
+rem  第1步：3 秒倒计时，按 N 键跳过更新检测
+rem  (choice /t 3 为超时秒数，/d Y 为超时后默认选项"继续检测")
+rem  BTW：BAT 的 choice 命令只能认指定按键，无法真正"任意键"，
+rem  所以用 N 键代表"跳过"，倒计时结束默认自动检测
 rem ------------------------------------------------------------
-curl -s --connect-timeout 8 --max-time 15 -o "%TEMP%\TongMing_ver.txt" "%VER_URL%"
+choice /c YN /t 3 /d Y /m "3 秒后自动检查更新，按 N 键立即跳过..."
+if errorlevel 2 goto :BUSINESS
+
+echo 正在检查更新（任一网络步骤超过 3 秒即放弃）...
+echo.
+
+rem ------------------------------------------------------------
+rem  第2步：下载远程版本号（连接与总耗时均限 3 秒）
+rem ------------------------------------------------------------
+curl -s --connect-timeout 3 --max-time 3 -o "%TEMP%\TongMing_ver.txt" "%VER_URL%"
 if errorlevel 1 goto :UPDATE_FAILED
 if not exist "%TEMP%\TongMing_ver.txt" goto :UPDATE_FAILED
 
 rem ------------------------------------------------------------
-rem  第2步：读取远程版本号（去掉空白和换行）
+rem  第3步：读取远程版本号（去掉空白和换行）
 rem ------------------------------------------------------------
 set "REMOTE_VER="
 for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command "(Get-Content -LiteralPath '%TEMP%\TongMing_ver.txt' -Raw).Trim()"`) do set "REMOTE_VER=%%i"
@@ -33,30 +74,27 @@ echo 远程最新版本：%REMOTE_VER%
 echo.
 
 rem ------------------------------------------------------------
-rem  第3步：版本对比
+rem  第4步：用 PowerShell [version] 按段比较版本号
+rem  [version] 能正确解析 x.y.z 格式并逐段比较大小，
+rem  try/catch 兜底：远程版本号格式非法时按"无需更新"处理
 rem ------------------------------------------------------------
-if "%LOCAL_VER%"=="%REMOTE_VER%" (
+set "NEED_UPDATE=0"
+for /f %%i in (`powershell -NoProfile -Command "try{if([version]'%REMOTE_VER%' -gt [version]'%LOCAL_VER%'){'1'}else{'0'}}catch{'0'}"`) do set "NEED_UPDATE=%%i"
+
+if "%NEED_UPDATE%"=="0" (
     echo 已是最新版本，无需更新。
     echo.
     goto :BUSINESS
 )
 
 rem ------------------------------------------------------------
-rem  第4步：询问用户是否更新
+rem  第5步：自动下载新版本（发现新版本直接更新，不再询问）
 rem ------------------------------------------------------------
 echo ========================================
 echo   发现新版本：v%LOCAL_VER% -^> v%REMOTE_VER%
+echo   正在自动下载更新...
 echo ========================================
-echo.
-choice /c YN /m "按 Y 立即更新，按 N 跳过更新"
-if errorlevel 2 goto :BUSINESS
-
-rem ------------------------------------------------------------
-rem  第5步：下载新版本脚本
-rem ------------------------------------------------------------
-echo.
-echo 正在下载新版本，请稍候...
-curl -s --connect-timeout 8 --max-time 15 -o "%NEW_FILE%" "%SCRIPT_URL%"
+curl -s --connect-timeout 3 --max-time 3 -o "%NEW_FILE%" "%SCRIPT_URL%"
 if errorlevel 1 goto :DOWNLOAD_FAILED
 if not exist "%NEW_FILE%" goto :DOWNLOAD_FAILED
 for %%A in ("%NEW_FILE%") do if %%~zA EQU 0 goto :DOWNLOAD_FAILED
@@ -84,7 +122,7 @@ start "" "%TEMP%\TongMing_updater.bat"
 exit /b
 
 :UPDATE_FAILED
-echo [！] 暂时无法连接更新服务器，将使用当前版本继续运行。
+echo [！] 检查更新超时或网络不可用，已放弃检测，使用当前版本继续运行。
 echo.
 goto :BUSINESS
 
