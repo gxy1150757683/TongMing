@@ -103,8 +103,9 @@ if exist "%PSFIX%" del "%PSFIX%" >nul 2>&1
 echo $f='%NEW_FILE%'                                     >> "%PSFIX%"
 echo $r='%REMOTE_VER%'                                   >> "%PSFIX%"
 echo $q=[char]34                                         >> "%PSFIX%"
+echo $cr=[char]94                                        >> "%PSFIX%"
 echo $c=[IO.File]::ReadAllText($f)                       >> "%PSFIX%"
-echo $c=[regex]::Replace($c,'set '+$q+'LOCAL_VER=[^'+$q+']*'+$q,'set '+$q+'LOCAL_VER='+$r+$q) >> "%PSFIX%"
+echo $c=[regex]::Replace($c,'set '+$q+'LOCAL_VER=['+$cr+$q+']*'+$q,'set '+$q+'LOCAL_VER='+$r+$q) >> "%PSFIX%"
 echo [IO.File]::WriteAllText($f,$c,[Text.Encoding]::ASCII) >> "%PSFIX%"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PSFIX%" 2>nul
 del "%PSFIX%" >nul 2>&1
