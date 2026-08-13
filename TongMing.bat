@@ -29,7 +29,7 @@ rem  - First download call draws the whole screen once (cls+title).
 rem    Everything after that ONLY rewrites the version line via CR.
 rem  - Single console window (start /b), all UI text is Chinese.
 rem ============================================================
-set "LOCAL_VER=1.0.1"
+set "LOCAL_VER=1.0.2"
 set "VER_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/version.txt"
 set "SCRIPT_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/TongMing.bat"
 set "NEW_FILE=%TEMP%\TongMing_new.bat"
@@ -38,7 +38,7 @@ if exist "%TEMP%\TongMing_updater.bat" del /q "%TEMP%\TongMing_updater.bat" >nul
 rem ============================================================
 rem  Step 1: check update (first DLOAD draws screen once)
 rem ============================================================
-set "URL_PARAM=%VER_URL%"
+set "URL_PARAM=%VER_URL%?t=%RANDOM%"
 set "OUT_PARAM=%TEMP%\TongMing_ver.txt"
 set "STYLE_PARAM=1"
 call :DLOAD
@@ -70,7 +70,7 @@ if errorlevel 1 goto :NO_UPDATE
 rem ============================================================
 rem  Step 4: download new script (same countdown+skip)
 rem ============================================================
-set "URL_PARAM=%SCRIPT_URL%"
+set "URL_PARAM=%SCRIPT_URL%?t=%RANDOM%"
 set "OUT_PARAM=%NEW_FILE%"
 set "STYLE_PARAM=2"
 call :DLOAD
