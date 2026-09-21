@@ -23,23 +23,23 @@ TongMing 是一个「双击即用、在线自更新」的批处理工具，包�
 
 | 文件 | 说明 |
 |---|---|
-| TongMing.bat | 主程序，双击运行即可 |
-| ersion.txt | 云端版本号（更新依据） |
+| `TongMing.bat` | 主程序，双击运行即可 |
+| `version.txt` | 云端版本号（更新依据） |
 
 ## 使用方法
 
-1. 将 TongMing.bat 放在包含 .sldasm 顶层装配体的目录（或该目录的上/下三级目录内）
+1. 将 `TongMing.bat` 放在包含 .sldasm 顶层装配体的目录（或该目录的上/下三级目录内）
 2. 双击运行
 3. 程序自动完成更新检查并进入功能菜单
 
 ## 更新原理
 
-- 启动后读取云端 ersion.txt 与本地 LOCAL_VER 比对
+- 启动后读取云端 `version.txt` 与本地 LOCAL_VER 比对
 - 云端版本更高时：下载 → 校验首行 @echo off → 强制版本号 → 自我替换 → 重启
-- 版本号要求：云端 ersion.txt ≥ 脚本内 LOCAL_VER，老客户端才会更新
+- 版本号要求：云端 `version.txt` ≥ 脚本内 LOCAL_VER，老客户端才会更新
 
 ## 发布新版本
 
-1. 修改 TongMing.bat 内的 LOCAL_VER 为新版本号
-2. 同时上传内容为新版本号的 ersion.txt（UTF-8 无 BOM）
-3. 上传文件名固定为 TongMing.bat（脚本内写死的云端地址）
+1. 修改 `TongMing.bat` 内的 LOCAL_VER 为新版本号
+2. 同时上传内容为新版本号的 `version.txt`（UTF-8 无 BOM）
+3. 上传文件名固定为 `TongMing.bat`（脚本内写死的云端地址）
