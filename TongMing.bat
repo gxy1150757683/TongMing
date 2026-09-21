@@ -6,6 +6,7 @@ rem ============================================================
 rem  TongMing.bat - Online Self-Updating Script + SolidWorks Archive Tool
 rem  v1.0.5 维护：提交说明中文化（功能零影响）
 rem  v1.0.8 维护：修复自我更新 updater 的 chcp 936→65001（中文路径乱码）
+rem  v1.0.9 维护：界面显示优化（选择功能提示 / 重命名差异高亮 / 文案去歧义）
 rem  NOTE: This file is 100%% ASCII. All Chinese UI text is built
 rem  by PowerShell [char]0xXXXX codepoints to avoid GBK/UTF-8
 rem  encoding corruption (the root cause of previous failures).
@@ -34,7 +35,7 @@ rem  - First download call draws the whole screen once (cls+title).
 rem    Everything after that ONLY rewrites the version line via CR.
 rem  - Single console window (start /b), all UI text is Chinese.
 rem ============================================================
-set "LOCAL_VER=1.0.8"
+set "LOCAL_VER=1.0.9"
 set "VER_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/version.txt"
 set "SCRIPT_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/TongMing.bat"
 set "NEW_FILE=%TEMP%\TongMing_new.bat"
@@ -272,6 +273,34 @@ function Confirm-Action([string]$msg){
     return ($r -match '^(n|no|否)$')
 }
 
+# ---------- 重命名分色显示辅助 ----------
+function Get-DiffSegments([string]$old,[string]$new){
+    $i = 0
+    $max = [Math]::Min($old.Length,$new.Length)
+    while($i -lt $max -and $old[$i] -eq $new[$i]){ $i++ }
+    $so = $old.Length
+    $sn = $new.Length
+    while($so -gt $i -and $sn -gt $i -and $old[$so-1] -eq $new[$sn-1]){ $so--; $sn-- }
+    return [pscustomobject]@{
+        Prefix  = $old.Substring(0,$i)
+        Suffix  = $old.Substring($so)
+        OldDiff = if($so -gt $i){ $old.Substring($i,$so-$i) } else { '' }
+        NewDiff = if($sn -gt $i){ $new.Substring($i,$sn-$i) } else { '' }
+    }
+}
+
+function Show-Rename([string]$from,[string]$to){
+    $d = Get-DiffSegments $from $to
+    Write-Host '重命名：' -ForegroundColor Cyan -NoNewline
+    Write-Host $d.Prefix -ForegroundColor White -NoNewline
+    if($d.OldDiff){ Write-Host $d.OldDiff -ForegroundColor Yellow -NoNewline }
+    Write-Host $d.Suffix -ForegroundColor White -NoNewline
+    Write-Host ' → ' -ForegroundColor DarkGray -NoNewline
+    Write-Host $d.Prefix -ForegroundColor White -NoNewline
+    if($d.NewDiff){ Write-Host $d.NewDiff -ForegroundColor Yellow -NoNewline }
+    Write-Host $d.Suffix -ForegroundColor White
+}
+
 function Pick-Index([array]$list,[string]$title){
     Msg $title
     for($i=0;$i -lt $list.Count;$i++){
@@ -287,7 +316,8 @@ function Pick-Index([array]$list,[string]$title){
 }
 
 function Read-FunctionInput{
-    Write-Host '选择功能（可多选，如 1234 回车执行；0 / ESC / 直接回车 退出）：' -NoNewline
+    Write-Host '[执行= 数字+回车(可多选)][退出= 0 / ESC / 空白+回车]' -ForegroundColor DarkGray
+    Write-Host '→→→ 选择功能：' -ForegroundColor Yellow -NoNewline
     try{
         $sb = New-Object System.Text.StringBuilder
         while($true){
@@ -385,8 +415,8 @@ function Do-Function1{
             Info ("已存在标准文件夹，跳过：{0}" -f $sp.Std)
             $extra = @(Get-ChildItem -LiteralPath $topDir -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match $sp.Kw -and $_.FullName -ne $stdPath })
             if($extra.Count -gt 0){
-                Info ("提示：仍有 {0} 个含[{1}]的文件夹未处理，请手动处理：" -f $extra.Count,$sp.Kw)
-                foreach($e in $extra){ Info ("    - {0}" -f $e.Name) }
+                Info ("另检测到 {0} 个含[{1}]的文件夹（不在标准之列，已保持原样）：" -f $extra.Count,$sp.Kw)
+                foreach($e in $extra){ Write-Host ('    · ' + $e.Name) -ForegroundColor DarkGray }
             }
             continue
         }
@@ -396,12 +426,16 @@ function Do-Function1{
             Ok ("新建文件夹：{0}" -f $sp.Std)
         } elseif($m.Count -eq 1){
             Rename-Item -LiteralPath $m[0].FullName -NewName $sp.Std
-            Ok ("重命名：{0} → {1}" -f $m[0].Name,$sp.Std)
+            Show-Rename $m[0].Name $sp.Std
         } else {
             $idx = Pick-Index ($m | ForEach-Object { $_.Name }) ("含[{0}]的文件夹有多个，请选择要重命名的：" -f $sp.Kw)
             Rename-Item -LiteralPath $m[$idx].FullName -NewName $sp.Std
-            Ok ("重命名：{0} → {1}" -f $m[$idx].Name,$sp.Std)
-            Info ("其余 {0} 个未处理，请手动处理。" -f ($m.Count-1))
+            Show-Rename $m[$idx].Name $sp.Std
+            $rest = @($m | Where-Object { $_.FullName -ne $m[$idx].FullName })
+            if($rest.Count -gt 0){
+                Ok ("✅ 已按所选重命名；其余 {0} 个含[{1}]的文件夹保持原名：" -f $rest.Count,$sp.Kw)
+                foreach($x in $rest){ Write-Host ('    · ' + $x.Name) -ForegroundColor DarkGray }
+            }
         }
     }
     Ok '完成!'
@@ -523,7 +557,7 @@ function Do-Function4{
                 [Microsoft.VisualBasic.FileIO.FileSystem]::MoveFile($f.FullName,$destPath,[Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,[Microsoft.VisualBasic.FileIO.UICancelOption]::ThrowException)
             }
             $nRenamed++
-            Ok ("重命名：    {0} → {1}" -f $f.Name,$target)
+            Show-Rename $f.Name $target
         } catch {
             Err ("重命名失败：{0}（{1}）" -f $f.Name,$_.Exception.Message)
         }
