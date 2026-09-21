@@ -4,6 +4,7 @@ chcp 65001 >nul
 
 rem ============================================================
 rem  TongMing.bat - Online Self-Updating Script + SolidWorks Archive Tool
+rem  v1.0.5 维护：提交说明中文化（功能零影响）
 rem  NOTE: This file is 100%% ASCII. All Chinese UI text is built
 rem  by PowerShell [char]0xXXXX codepoints to avoid GBK/UTF-8
 rem  encoding corruption (the root cause of previous failures).
