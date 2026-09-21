@@ -5,6 +5,7 @@ chcp 65001 >nul
 rem ============================================================
 rem  TongMing.bat - Online Self-Updating Script + SolidWorks Archive Tool
 rem  v1.0.5 维护：提交说明中文化（功能零影响）
+rem  v1.0.8 维护：修复自我更新 updater 的 chcp 936→65001（中文路径乱码）
 rem  NOTE: This file is 100%% ASCII. All Chinese UI text is built
 rem  by PowerShell [char]0xXXXX codepoints to avoid GBK/UTF-8
 rem  encoding corruption (the root cause of previous failures).
@@ -33,7 +34,7 @@ rem  - First download call draws the whole screen once (cls+title).
 rem    Everything after that ONLY rewrites the version line via CR.
 rem  - Single console window (start /b), all UI text is Chinese.
 rem ============================================================
-set "LOCAL_VER=1.0.6"
+set "LOCAL_VER=1.0.8"
 set "VER_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/version.txt"
 set "SCRIPT_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/TongMing.bat"
 set "NEW_FILE=%TEMP%\TongMing_new.bat"
@@ -121,7 +122,7 @@ rem  Step 6: single-window self-replace (no self-delete!)
 rem ============================================================
 (
 echo @echo off
-echo chcp 936 ^>nul
+echo chcp 65001 ^>nul
 echo timeout /t 3 /nobreak ^>nul
 echo copy /y "%NEW_FILE%" "%~f0" ^>nul
 echo if errorlevel 1 exit /b
