@@ -33,7 +33,7 @@ rem  - First download call draws the whole screen once (cls+title).
 rem    Everything after that ONLY rewrites the version line via CR.
 rem  - Single console window (start /b), all UI text is Chinese.
 rem ============================================================
-set "LOCAL_VER=1.0.5"
+set "LOCAL_VER=1.0.6"
 set "VER_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/version.txt"
 set "SCRIPT_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/TongMing.bat"
 set "NEW_FILE=%TEMP%\TongMing_new.bat"
