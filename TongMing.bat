@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-chcp 936 >nul
+chcp 65001 >nul
 
 rem ============================================================
 rem  TongMing.bat - Online Self-Updating Script + SolidWorks Archive Tool
@@ -32,7 +32,7 @@ rem  - First download call draws the whole screen once (cls+title).
 rem    Everything after that ONLY rewrites the version line via CR.
 rem  - Single console window (start /b), all UI text is Chinese.
 rem ============================================================
-set "LOCAL_VER=1.0.4"
+set "LOCAL_VER=1.0.5"
 set "VER_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/version.txt"
 set "SCRIPT_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/TongMing.bat"
 set "NEW_FILE=%TEMP%\TongMing_new.bat"
@@ -235,13 +235,11 @@ exit /b
 
 rem ============================================================
 rem  BUSINESS ZONE - 装配体归档整理工具（在线更新版）
-rem  先完成上方在线更新检查，再提取本文件 :PSSECTION 段
-rem  的 PowerShell 业务代码并执行。上传 GitHub 时请将
-rem  本文件命名为 TongMing.bat（与 SCRIPT_URL 保持一致）。
+rem  全局 chcp 65001：与原装配体工具编码方案一致，
+rem  业务输出统一 UTF-8，避免代码页中途切换导致的乱码。
 rem ============================================================
 :BUSINESS
-chcp 65001 >nul
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$batPath='%~f0';$c=[IO.File]::ReadAllText('%~f0',[Text.Encoding]::UTF8);$m=[regex]::Match($c,'(?m)^:PSSECTION\r?$');if($m.Success){$c2=$c.Substring($m.Index);$lines=$c2 -split '\r?\n';if($lines.Count -gt 1){$code=($lines[1..($lines.Length-1)] -join [char]10);Invoke-Expression $code}}"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[Console]::OutputEncoding=[Text.Encoding]::UTF8;$batPath='%~f0';$c=[IO.File]::ReadAllText('%~f0',[Text.Encoding]::UTF8);$m=[regex]::Match($c,'(?m)^:PSSECTION\r?$');if($m.Success){$c2=$c.Substring($m.Index);$lines=$c2 -split '\r?\n';if($lines.Count -gt 1){$code=($lines[1..($lines.Length-1)] -join [char]10);Invoke-Expression $code}}"
 endlocal
 exit /b
 
