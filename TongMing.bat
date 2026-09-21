@@ -9,6 +9,8 @@ rem  v1.0.8 维护：修复自我更新 updater 的 chcp 936→65001（中文路
 rem  v1.0.9 维护：界面显示优化（选择功能提示 / 重命名差异高亮 / 文案去歧义）
 rem  v1.0.10 维护：界面一致性（简洁菜单 / 安全确认引导 / 成功文案统一）
 rem  v1.0.11 维护：移除菜单末尾与"选择功能"提示重复的操作说明
+rem  v1.0.12 维护：更新检测不再只有 raw 单点源——主源失败自动
+rem          改用 jsDelivr 镜像重试；超时窗口 5s→12s（curl 8s/16s）
 rem  NOTE: This file is 100%% ASCII. All Chinese UI text is built
 rem  by PowerShell [char]0xXXXX codepoints to avoid GBK/UTF-8
 rem  encoding corruption (the root cause of previous failures).
@@ -16,10 +18,11 @@ rem
 rem  [FLOW]
 rem  1. Config zone: LOCAL_VER / VER_URL / SCRIPT_URL
 rem  2. Check update: download version file immediately,
-rem     show 5s countdown + key-press-skip (all in parallel):
-rem       - download done  -> proceed at once (never wait 5s)
-rem       - 5s timeout     -> skip, use current version
+rem     show 12s countdown + key-press-skip (all in parallel):
+rem       - download done  -> proceed at once (never wait 12s)
+rem       - 12s timeout    -> skip, use current version
 rem       - any key pressed-> skip immediately
+rem  2b. Mirror retry: raw main source fails -> jsDelivr backup
 rem  3. Compare versions via PowerShell [version] (by segments)
 rem  4. If newer: download new script (same 5s+skip protection)
 rem  5. Integrity check: first line must be "@echo off"
@@ -37,9 +40,11 @@ rem  - First download call draws the whole screen once (cls+title).
 rem    Everything after that ONLY rewrites the version line via CR.
 rem  - Single console window (start /b), all UI text is Chinese.
 rem ============================================================
-set "LOCAL_VER=1.0.11"
+set "LOCAL_VER=1.0.12"
 set "VER_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/version.txt"
 set "SCRIPT_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/TongMing.bat"
+set "VER_URL2=https://cdn.jsdelivr.net/gh/gxy1150757683/TongMing@main/version.txt"
+set "SCRIPT_URL2=https://cdn.jsdelivr.net/gh/gxy1150757683/TongMing@main/TongMing.bat"
 set "NEW_FILE=%TEMP%\TongMing_new.bat"
 if exist "%TEMP%\TongMing_updater.bat" del /q "%TEMP%\TongMing_updater.bat" >nul 2>&1
 
@@ -55,8 +60,18 @@ if "!DL_RESULT!"=="1" (
     goto :BUSINESS
 )
 if not "!DL_RESULT!"=="0" (
-    call :SHOW 3
-    goto :BUSINESS
+    set "URL_PARAM=%VER_URL2%"
+    set "OUT_PARAM=%TEMP%\TongMing_ver.txt"
+    set "STYLE_PARAM=1"
+    call :DLOAD
+    if "!DL_RESULT!"=="1" (
+        call :SHOW 2
+        goto :BUSINESS
+    )
+    if not "!DL_RESULT!"=="0" (
+        call :SHOW 3
+        goto :BUSINESS
+    )
 )
 
 rem ============================================================
@@ -87,8 +102,18 @@ if "!DL_RESULT!"=="1" (
     goto :BUSINESS
 )
 if not "!DL_RESULT!"=="0" (
-    call :SHOW 5
-    goto :BUSINESS
+    set "URL_PARAM=%SCRIPT_URL2%"
+    set "OUT_PARAM=%NEW_FILE%"
+    set "STYLE_PARAM=2"
+    call :DLOAD
+    if "!DL_RESULT!"=="1" (
+        call :SHOW 4
+        goto :BUSINESS
+    )
+    if not "!DL_RESULT!"=="0" (
+        call :SHOW 5
+        goto :BUSINESS
+    )
 )
 
 rem ============================================================
@@ -174,7 +199,8 @@ exit /b
 rem ============================================================
 rem  :DLOAD - background download + 5s countdown + key skip
 rem  Input : URL_PARAM / OUT_PARAM / STYLE_PARAM(1=first/updating
-rem          2=downloading)
+rem          2=downloading)  — called twice on main-source fail
+rem          2nd call uses the jsDelivr backup URL.
 rem  Output: DL_RESULT (0=ok 1=key-skipped 2=timeout/fail)
 rem  First call (STYLE=1) draws the whole screen once.
 rem  Second call (STYLE=2) only rewrites the version line via CR,
@@ -196,11 +222,11 @@ echo if($st -eq '1'){ Write-Host '========================================' } >>
 echo if($st -eq '1'){ Write-Host '' }                    >> "%PS_FILE%"
 echo $uri='%URL_PARAM%'                                  >> "%PS_FILE%"
 echo $out='%OUT_PARAM%'                                  >> "%PS_FILE%"
-echo $d=(Get-Date).AddSeconds(5)                         >> "%PS_FILE%"
+echo $d=(Get-Date).AddSeconds(12)                        >> "%PS_FILE%"
 echo $last=-1                                            >> "%PS_FILE%"
 echo $p=New-Object System.Diagnostics.Process            >> "%PS_FILE%"
 echo $p.StartInfo.FileName='curl.exe'                    >> "%PS_FILE%"
-echo $p.StartInfo.Arguments='-s -L --connect-timeout 5 --max-time 5 -o '+$out+' '+$uri >> "%PS_FILE%"
+echo $p.StartInfo.Arguments='-s -L --connect-timeout 8 --max-time 16 -o '+$out+' '+$uri >> "%PS_FILE%"
 echo $p.StartInfo.UseShellExecute=$false                 >> "%PS_FILE%"
 echo $p.StartInfo.CreateNoWindow=$true                   >> "%PS_FILE%"
 echo try{ $null = $p.Start() }catch{ exit 2 }            >> "%PS_FILE%"
