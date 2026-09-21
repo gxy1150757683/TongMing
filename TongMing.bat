@@ -8,6 +8,7 @@ rem  v1.0.5 维护：提交说明中文化（功能零影响）
 rem  v1.0.8 维护：修复自我更新 updater 的 chcp 936→65001（中文路径乱码）
 rem  v1.0.9 维护：界面显示优化（选择功能提示 / 重命名差异高亮 / 文案去歧义）
 rem  v1.0.10 维护：界面一致性（简洁菜单 / 安全确认引导 / 成功文案统一）
+rem  v1.0.11 维护：移除菜单末尾与"选择功能"提示重复的操作说明
 rem  NOTE: This file is 100%% ASCII. All Chinese UI text is built
 rem  by PowerShell [char]0xXXXX codepoints to avoid GBK/UTF-8
 rem  encoding corruption (the root cause of previous failures).
@@ -36,7 +37,7 @@ rem  - First download call draws the whole screen once (cls+title).
 rem    Everything after that ONLY rewrites the version line via CR.
 rem  - Single console window (start /b), all UI text is Chinese.
 rem ============================================================
-set "LOCAL_VER=1.0.10"
+set "LOCAL_VER=1.0.11"
 set "VER_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/version.txt"
 set "SCRIPT_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/TongMing.bat"
 set "NEW_FILE=%TEMP%\TongMing_new.bat"
@@ -576,8 +577,6 @@ Write-Host '  1 = 文件夹更新/新建（01打印 / 02资料 / 03STEP）'
 Write-Host '  2 = 删除旧文件（移入回收站，打印夹内 Word 除外）'
 Write-Host '  3 = 文件归档（将散乱文件分类归入三个文件夹）'
 Write-Host '  4 = 同名（打印文件夹内文件改成顶层装配体名）'
-Write-Host ''
-Write-Host '  输入多个数字可同时执行（如 12 回车）；0 / ESC / 直接回车 = 退出' -ForegroundColor DarkGray
 
 while($true){
     Write-Host ''
