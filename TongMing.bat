@@ -7,6 +7,7 @@ rem  TongMing.bat - Online Self-Updating Script + SolidWorks Archive Tool
 rem  v1.0.5 维护：提交说明中文化（功能零影响）
 rem  v1.0.8 维护：修复自我更新 updater 的 chcp 936→65001（中文路径乱码）
 rem  v1.0.9 维护：界面显示优化（选择功能提示 / 重命名差异高亮 / 文案去歧义）
+rem  v1.0.10 维护：界面一致性（简洁菜单 / 安全确认引导 / 成功文案统一）
 rem  NOTE: This file is 100%% ASCII. All Chinese UI text is built
 rem  by PowerShell [char]0xXXXX codepoints to avoid GBK/UTF-8
 rem  encoding corruption (the root cause of previous failures).
@@ -35,7 +36,7 @@ rem  - First download call draws the whole screen once (cls+title).
 rem    Everything after that ONLY rewrites the version line via CR.
 rem  - Single console window (start /b), all UI text is Chinese.
 rem ============================================================
-set "LOCAL_VER=1.0.9"
+set "LOCAL_VER=1.0.10"
 set "VER_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/version.txt"
 set "SCRIPT_URL=https://raw.githubusercontent.com/gxy1150757683/TongMing/refs/heads/main/TongMing.bat"
 set "NEW_FILE=%TEMP%\TongMing_new.bat"
@@ -317,7 +318,7 @@ function Pick-Index([array]$list,[string]$title){
 
 function Read-FunctionInput{
     Write-Host '[执行= 数字+回车(可多选)][退出= 0 / ESC / 空白+回车]' -ForegroundColor DarkGray
-    Write-Host '→→→ 选择功能：' -ForegroundColor Yellow -NoNewline
+    Write-Host '选择功能：' -ForegroundColor Yellow -NoNewline
     try{
         $sb = New-Object System.Text.StringBuilder
         while($true){
@@ -390,7 +391,7 @@ if($noPlus.Count -eq 1){
 
 $zname  = $chosen.Base
 $topDir = Split-Path $chosen.Full -Parent
-Ok ("✅ 顶层装配体:{0}" -f $zname)
+Ok ("✅ 顶层装配体：{0}" -f $zname)
 
 # ---------- 公共：定位目标文件夹（优先标准名，其次按关键字）----------
 function Get-TargetDir($keyword,$stdName){
@@ -412,7 +413,7 @@ function Do-Function1{
     foreach($sp in $specs){
         $stdPath = Join-Path $topDir $sp.Std
         if(Test-Path -LiteralPath $stdPath){
-            Info ("已存在标准文件夹，跳过：{0}" -f $sp.Std)
+            Ok ("✅ 标准文件夹已存在，无需新建：{0}" -f $sp.Std)
             $extra = @(Get-ChildItem -LiteralPath $topDir -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match $sp.Kw -and $_.FullName -ne $stdPath })
             if($extra.Count -gt 0){
                 Info ("另检测到 {0} 个含[{1}]的文件夹（不在标准之列，已保持原样）：" -f $extra.Count,$sp.Kw)
@@ -454,11 +455,12 @@ function Do-Function2{
     if($stepDir){  $dirs += [pscustomobject]@{Name='STEP文件夹';Path=$stepDir} }
     if($dirs.Count -eq 0){ Err '未找到任何目标文件夹（打印/资料/STEP），跳过功能2。'; return }
 
-    Write-Host '以下文件夹内的文件将被移入回收站：'
-    foreach($d in $dirs){ Write-Host ("  - {0}：{1}" -f $d.Name,$d.Path) }
-    Info '例外：打印文件夹内的 Word 文件（doc/docx/docm/dot/dotx/dotm/rtf/odt/wps/wpt）不删除。'
-    if(-not (Confirm-Action '您不删除？（回车=不删除；输入 n/否=执行删除）：')){
-        Info '已取消功能2。'
+    Write-Host '以下文件夹内的文件将移入回收站（可还原）：'
+    foreach($d in $dirs){ Write-Host ("  · {0}：{1}" -f $d.Name,$d.Path) }
+    Info '注：打印文件夹内的 Word 文件（doc/docx/docm/dot/dotx/dotm/rtf/odt/wps/wpt）会自动保留。'
+    Info '确认执行：直接回车 = 不执行；输入 n / 否 = 执行删除'
+    if(-not (Confirm-Action '你的选择：')){
+        Info '已取消功能2，未删除任何文件。'
         return
     }
 
@@ -570,11 +572,12 @@ function Do-Function4{
 # ---------- 执行（菜单显示一次，执行完可直接继续输入）----------
 Write-Host ''
 Msg '==================== 功能菜单 ===================='
-Write-Host '  1 = 功能1  文件夹更新/新建（01打印 / 02资料 / 03STEP）'
-Write-Host '  2 = 功能2  删除旧文件（移入回收站，打印夹内Word除外）'
-Write-Host '  3 = 功能3  文件归档（顶装本散文件分类归入三个文件夹）'
-Write-Host '  4 = 功能4  同名（打印文件夹内所有文件改名为顶层装配体名）'
-Write-Host '  0 / ESC / 直接回车 = 退出'
+Write-Host '  1 = 文件夹更新/新建（01打印 / 02资料 / 03STEP）'
+Write-Host '  2 = 删除旧文件（移入回收站，打印夹内 Word 除外）'
+Write-Host '  3 = 文件归档（将散乱文件分类归入三个文件夹）'
+Write-Host '  4 = 同名（打印文件夹内文件改成顶层装配体名）'
+Write-Host ''
+Write-Host '  输入多个数字可同时执行（如 12 回车）；0 / ESC / 直接回车 = 退出' -ForegroundColor DarkGray
 
 while($true){
     Write-Host ''
@@ -589,7 +592,7 @@ while($true){
     }
     if($wantExit){ Ok '已退出工具，再见！'; break }
     if($toRun.Count -eq 0){
-        Info '未输入有效功能（可多选，如 1234 回车执行；0 / ESC / 直接回车 退出）'
+        Info '没有识别到有效功能，请重新输入（1-4 多选；0 或回车退出）'
         continue
     }
     foreach($f in @('1','2','3','4')){
@@ -603,6 +606,6 @@ while($true){
         }
     }
     Write-Host ''
-    Ok '全部执行成功！！！'
+    Ok '✅ 全部执行完成！'
 }
 
